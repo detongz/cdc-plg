@@ -9,22 +9,36 @@
 
 ## 背景&动机
 
-随着 TiDB 被运用到更加复杂的分析场景，客户场景通过 TiDB、TiFlash 满足不了业务需求，需要把数据引入到其他数据库上。
+随着 TiDB 的使用场景愈加广泛（实时数据分析、实时监听业务数据变更等），面向 TiDB 的实时数据导入导出能力、以及实时流式数据处理能力也提出了更高的要求。
 
-Pingcap 提供的把数据同步到异构数据库的解决方案就是通过 TiCDC 把数据打到 Kafka。而 Kafka 本身也是一个维护成本和消耗资源都足够昂贵的组件，Kafka之后还要对接其他服务消费这部分数据才能发到对应数据库。
+TiDB 官方开发了 TiCDC 项目以解决 TiDB 实时数据同步的问题，通过拉取上游 TiKV 的数据变更日志，TiCDC 可以将数据解析为有序的行级变更数据输出到下游，并默认提供了两种 Sink 可将变更数据输出到 MySQL 协议兼容的数据库和 Kafka 消息队列。
 
-在业务测，修改源代码实现 Go 相关接口、编译 TiFlow 代码是不合理的，因此我们希望 TiCDC 可以提供像同为 golang 实现的 ApiSix 微服务网关一样的插件能力，让有数据同步需求的用户可以自由地定制贴合业务的逻辑，而且减少组件依赖。
+然而，仅通过 MySQL 协议和 Kafka 显然不能满足下游灵活多样的 Sink 场景，比如：
+
+- 实现不同于默认 Kafka Sink 特定的 Parition 路由策略
+- 针对其他数据仓库 Sink 的特定优化，如：使用MySQL协议将数据写入 Doris 时的批量写入优化
+- 将数据输出到其他数据源，如：Nats、Pulsar、S3 等
+- 其他 Sink 过程中的特定业务需求，如：针对某些敏感字段的数据脱敏，等等
+
+针对以上每一种特定的业务测需求，通过修改 TiCDC 源代码，实现 Go 相关接口、重新编译 TiCDC 代码是不合理的。一方面，这些特定需求可能是业务相关的，并不适合放入官方仓库；另一方面，通过修改 TiCDC 源码来增加这类非常灵活的 Sink 功能，既不利于 TiCDC 发版的稳定性，更不利于 TiCDC 内核本身的安全性。
+
+因此我们希望通过这次 Hackathon 进行尝试，让 TiCDC 可以提供灵活、方便、安全的插件化 Sink 开发能力，让有定制化数据同步需求的用户可以自由地针对自身的业务场景，开发自定义 Sink 插件，让数据真正 Flow 起来~
+
+提供类似的插件化能力的相关项目：
+
+- [Apache APISIX](https://apisix.apache.org/)
 
 ## 项目设计
 
-用 Wasm，go plugin，lua 三种形式支持用户自定义数据同步逻辑。
+提供 WebAssembly、Go Plugin、RPC Plugin、Lua 等多种形式的插件接口和SDK，方便用户自定义数据同步逻辑。
 
-实现除 MQ 和 MySQL 之外的 Plugin sink。https://github.com/pingcap/tiflow/tree/master/cdc/sink
+实现除 MySQL协议 和 Kafka 之外的 Plugin Sink。https://github.com/pingcap/tiflow/tree/master/cdc/sink
 
 未来扩展：
 
-- 可以通过 TiCDC 插件，提供足够多的 AP 数据库发送模板让，以配置化的形式让用户不需要编译 TiFlow 代码或任何插件即可完成数据同步
+- 通过 TiCDC Sink 插件，提供足够多的 AP 数据库发送模板，以配置化的形式让用户不需要编译 TiFlow 代码或任何插件即可完成数据同步
+- 提供 TiFlow 插件市场，让通用化插件服务于更多的用户
 
-[@eastfisher](https://github.com/eastfisher) focus on WASM
+[@eastfisher](https://github.com/eastfisher) focus on WebAssembly Plugin
 
 [@mischaZhang](https://github.com/mischaZhang) forcus on Lua and Go Plugins
