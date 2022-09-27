@@ -1,6 +1,6 @@
 # RFC: TiVP - Visual Plan For TiDB
 
-- Author(s): [@eastfisher](https://github.com/eastfisher), [@mischaZhang](https://github.com/mischaZhang)
+- Author(s): [@eastfisher](https://github.com/eastfisher), [@mischaZhang](https://github.com/mischaZhang), [@yangwenmai](https://github.com/yangwenmai)
 - Progress: NaN
 
 ## 项目介绍
