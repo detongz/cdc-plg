@@ -46,23 +46,24 @@ TiDB 官方开发了 TiCDC 项目以解决 TiDB 实时数据同步的问题，�
 
 ### 针对插件的管理
 
+
 TiCDC 集群采用 Master-Worker 工作模式，每个 TiCDC 进程是无状态的，基于 pd 内置的 etcd 选举出全局唯一 Owner 节点负责对 Changefeed 进行统一调度，将 Changefeed 划分为 TablePipeline 这个最小同步单元之后，分发到不同的 Processor 节点上执行，执行过程中的状态信息保存到 pd 上。整个集群的所有角色节点都是高可用的。
 
-无插件体系时，TiCDC 集群中的所有 TiCDC 进程运行的 bin 文件版本均是相同的，因此对 TiCDC 本身来说不存在状态一致性问题。引入插件体系后，需要保证所有 TiCDC 进程中的插件版本是一致的。
+无插件时，TiCDC 集群中的所有 TiCDC 进程运行的程序一致，此时 TiCDC 不同节点之间不存在数据处理不一致问题。引入插件后，有必要保证所有包含插件的 TiCDC 进程运行程序的一致。
 
 我们提供了一种基于 2PC 的插件变更的实现思路，整个插件变更流程共分为 Prepare、Pause、Commit 三个阶段。
 
-Prepare 阶段：通过 cdc cli 或 OpenAPI 调用上传插件接口，将 插件文件上传至 Owner 节点（如果请求打到 Processor 节点上，会被路由至 Owner 节点）。Owner 节点此时开始执行 Prepare 操作，向所有 Processor 节点分发插件文件，直到所有节点返回成功后，执行下一步 Pause。
+Prepare 阶段：通过 cdc cli 或 OpenAPI 调用上传插件接口，将插件文件上传至 Owner 节点（如果请求打到 Processor 节点上，会被路由至 Owner 节点）。Owner 节点此时开始执行 Prepare 操作，向所有 Processor 节点分发插件文件，直到所有节点返回成功后，执行下一步 Pause。
 
-![plugin_prepare](https://github.com/eastfisher/tivalve/raw/main/docs/assets/plugin_prepare.png)
+<img src="https://github.com/eastfisher/tivalve/raw/main/docs/assets/plugin_prepare.png">
 
 Pause 阶段：此阶段会暂停所有正在运行的 Changefeed 任务，等待下一步 Commit 阶段做真正的插件切换操作。
 
-![plugin_pause](https://github.com/eastfisher/tivalve/blob/main/docs/assets/plugin_pause.png)
+<img src="https://github.com/eastfisher/tivalve/blob/main/docs/assets/plugin_pause.png">
 
 Commit 阶段：对所有的 Changefeed 中的所有 TablePipeline 的 Sink 模块执行 Reload 操作（也可以优化下，只针对使用了 WasmPluginSink 实现的 TablePipeline 执行 Reload），重新初始化 Wasm Instance 时使用新版本的 Wasm 插件文件，从而实现版本更新。
 
-![plugin_commit](https://github.com/eastfisher/tivalve/blob/main/docs/assets/plugin_commit.png)
+<img src="https://github.com/eastfisher/tivalve/blob/main/docs/assets/plugin_commit.png">
 
 以上三个阶段都是幂等的。
 
