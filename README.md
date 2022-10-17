@@ -33,9 +33,9 @@ TiDB 官方开发了 TiCDC 项目以解决 TiDB 实时数据同步的问题，�
 
 #### 插件和 TiCDC 在同一进程内运行
 
-- 基于 WASM 的插件框架 (支持多语言)
-- 基于 Go Plugin 的 **.so** 插件框架 (支持可以编译成 .so 的任意语言)
-- 基于 gopher-lua 在程序里运行lua脚本 (lua语言)
+- 基于 [WASM](https://wasi.dev/) 的插件框架 (支持多语言)
+- 基于 [Go Plugin](https://pkg.go.dev/plugin) 的 **.so** 插件框架 (支持多语言)
+- 基于 [gopher-lua](https://github.com/yuin/gopher-lua) 在程序里运行lua脚本 (lua语言)
 
 #### 插件和 TiCDC 在不同进程运行
 
@@ -70,10 +70,10 @@ TiCDC 自身提供了 MySQL 和 Kafka 这两种 Sink 实现，我们需要为此
 
 我们使用 [waPC](https://wapc.io/) 作为 Wasm 的 Host 端和 Guest 端的通信协议，并且为了实现简单，使用 JSON 作为序列化协议。
 
-waPC的 Instance 通信接口声明为：
+waPC 的 Instance 通信接口声明为：
 
 ```go
-Instance interface {
+type Instance interface {
     MemorySize(context.Context) uint32
     Invoke(ctx context.Context, operation string, payload []byte) ([]byte, error)
     Close(context.Context) error
