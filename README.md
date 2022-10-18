@@ -19,7 +19,7 @@ TiDB 官方开发了 TiCDC 项目以解决 TiDB 实时数据同步的问题，�
 - 将数据输出到其他数据源，如：Nats、Pulsar、S3，其他不支持 MySQL 协议的数据库等。
 - 其他 Sink 过程中的特定业务需求，如：针对某些敏感字段的数据脱敏，等等。
 
-针对以上每一种特定的业务测需求，通过修改 TiCDC 源代码，实现 Go 相关接口、重新编译 TiCDC 代码，往往是通过 Fork 代码的形式自己维护代码。用户需求的业务相关需求，不一定适合合并到上游；另一方面，企业用户通过修改 TiCDC 源码来增加的功能在 TiDB 版本更新时需要不断做 cherry pick 和适配。用户自改逻辑自行编译 TiCDC 也由于编译环境与社区的偏差导致 TiCDC 稳定性与社区版本有出入。
+针对以上每一种特定的业务侧需求，通过修改 TiCDC 源代码，实现 Go 相关接口、重新编译 TiCDC 代码，往往是通过 Fork 代码的形式自己维护代码。但是用户定制的业务需求，不一定适合合并到上游，企业用户通过修改 TiCDC 源码来增加的功能在 TiDB 版本更新时需要不断做 cherry pick 和适配。用户自改逻辑自行编译 TiCDC 也由于编译环境与社区的偏差导致 TiCDC 稳定性与社区版本有出入。
 
 因此我们希望通过这次 Hackathon 进行尝试，让 TiCDC 可以提供灵活、方便、安全的插件化 Sink 开发能力，让有定制化数据同步需求的用户可以自由地针对自身的业务场景，开发自定义 Sink 插件，让数据真正 Flow 起来~
 
@@ -27,17 +27,17 @@ TiDB 官方开发了 TiCDC 项目以解决 TiDB 实时数据同步的问题，�
 
 支持多种插件形式，用户可自定义数据同步逻辑。
 
-实现除 MySQL协议 和 Kafka 之外的 Plugin Sink。https://github.com/pingcap/tiflow/tree/master/cdc/sink
+实现除 MySQL 协议和 Kafka 之外的 Plugin Sink。https://github.com/pingcap/tiflow/tree/master/cdc/sink
 
 ### 插件形式
 
-#### 插件和 TiCDC 在同一进程内运行
+#### 1. 插件和 TiCDC 在同一进程内运行
 
 - 基于 [WASM](https://wasi.dev/) 的插件框架 (支持多语言)
 - 基于 [Go Plugin](https://pkg.go.dev/plugin) 的 **.so** 插件框架 (支持多语言)
-- 基于 [gopher-lua](https://github.com/yuin/gopher-lua) 在程序里运行lua脚本 (lua语言)
+- 基于 [gopher-lua](https://github.com/yuin/gopher-lua) 在程序里运行 lua 脚本 (lua 语言)
 
-#### 插件和 TiCDC 在不同进程运行
+#### 2. 插件和 TiCDC 在不同进程运行
 
 该方式通过可以支持多种编程语言，TiCDC 提供基于 RPC 或 HTTP 的 Hook 接口
 
@@ -94,15 +94,21 @@ TiCDC 集群采用 Master-Worker 工作模式，每个 TiCDC 进程是无状态�
 
 我们提供了一种基于 2PC 的插件变更的实现思路，整个插件变更流程共分为 Prepare、Pause、Commit 三个阶段。
 
-Prepare 阶段：通过 cdc cli 或 OpenAPI 调用上传插件接口，将插件文件上传至 Owner 节点（如果请求打到 Processor 节点上，会被路由至 Owner 节点）。Owner 节点此时开始执行 Prepare 操作，向所有 Processor 节点分发插件文件，直到所有节点返回成功后，执行下一步 Pause。
+**1. Prepare 阶段**
+
+通过 cdc cli 或 OpenAPI 调用上传插件接口，将插件文件上传至 Owner 节点（如果请求打到 Processor 节点上，会被路由至 Owner 节点）。Owner 节点此时开始执行 Prepare 操作，向所有 Processor 节点分发插件文件，直到所有节点返回成功后，执行下一步 Pause。
 
 <img src="https://github.com/eastfisher/tivalve/raw/main/docs/assets/plugin_prepare.png">
 
-Pause 阶段：此阶段会暂停所有正在运行的 Changefeed 任务，等待下一步 Commit 阶段做真正的插件切换操作。
+**2. Pause 阶段**
+
+此阶段会暂停所有正在运行的 Changefeed 任务，等待下一步 Commit 阶段做真正的插件切换操作。
 
 <img src="https://github.com/eastfisher/tivalve/blob/main/docs/assets/plugin_pause.png">
 
-Commit 阶段：对所有的 Changefeed 中的所有 TablePipeline 的 Sink 模块执行 Reload 操作（也可以优化下，只针对使用了 WasmPluginSink 实现的 TablePipeline 执行 Reload），重新初始化 Wasm Instance 时使用新版本的 Wasm 插件文件，从而实现版本更新。
+**3. Commit 阶段**
+
+对所有的 Changefeed 中的所有 TablePipeline 的 Sink 模块执行 Reload 操作（也可以优化下，只针对使用了 WasmPluginSink 实现的 TablePipeline 执行 Reload），重新初始化 Wasm Instance 时使用新版本的 Wasm 插件文件，从而实现版本更新。
 
 <img src="https://github.com/eastfisher/tivalve/blob/main/docs/assets/plugin_commit.png">
 
@@ -110,6 +116,6 @@ Commit 阶段：对所有的 Changefeed 中的所有 TablePipeline 的 Sink 模�
 
 ## 未来扩展
 
-- 目前只尝试针对 TiCDC Sink 这一个扩展点进行插件化改造，事实上 TiCDC 或者 DM 还有一些其他的扩展点可以挖掘插件能力，在引入更多插件扩展之后，TiFlow 可形成围绕 TiDB 数据库的功能强大的数据流处理生态，在一定场景上取代传统的流处理平台，简化技术架构。
-- 深入挖掘插件框架 Engine 的特性，使其达到与原生插件相媲美的功能和性能（当前 WASM 插件访问 Host 网络 IO 资源还比较困难，另外性能也与原生插件有不小的差距）。
-- 探索插件安全规范，避免由于引入不安全的插件影响 TiCDC 自身的安全性，导致 TiCDC 宕机甚至 TiKV 数据泄漏等风险。
+1. 目前只尝试针对 TiCDC Sink 这一个扩展点进行插件化改造，事实上 TiCDC 或者 DM 还有一些其他的扩展点可以挖掘插件能力，在引入更多插件扩展之后，TiFlow 可形成围绕 TiDB 数据库的功能强大的数据流处理生态，在一定场景上取代传统的流处理平台，简化技术架构。
+2. 深入挖掘插件框架 Engine 的特性，使其达到与原生插件相媲美的功能和性能（当前 WASM 插件访问 Host 网络 IO 资源还比较困难，另外性能也与原生插件有不小的差距）。
+3. 探索插件安全规范，避免由于引入不安全的插件影响 TiCDC 自身的安全性，导致 TiCDC 宕机甚至 TiKV 数据泄漏等风险。
