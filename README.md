@@ -4,7 +4,7 @@
 
 ## 项目代码
 
-https://github.com/eastfisher/tiflow/tree/hackathon-2022-1
+https://github.com/eastfisher/tiflow/tree/hackathon-2022
 
 ## 项目介绍
 
