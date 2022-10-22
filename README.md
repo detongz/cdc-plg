@@ -2,6 +2,10 @@
 
 - Author(s): [@eastfisher](https://github.com/eastfisher), [@mischaZhang](https://github.com/mischaZhang), [@yangwenmai](https://github.com/yangwenmai)
 
+## 项目代码
+
+https://github.com/eastfisher/tiflow/tree/hackathon-2022-1
+
 ## 项目介绍
 
 该项目旨在为 TiCDC 用户提供可扩展插件的方式，定制数据处理过程，提升 TiCDC 的扩展性。
